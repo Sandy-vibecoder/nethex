@@ -31,18 +31,18 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Collect
-        run: cp app/build/outputs/apk/release/app-release.apk PhantomSpectre.apk
+        run: cp app/build/outputs/apk/release/app-release.apk Nethex.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PhantomSpectre
-          path: PhantomSpectre.apk
+          name: Nethex
+          path: Nethex.apk
 
       - name: Publish as the "latest" release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Phantom Spectre (latest build)
-          body: "Installable APK. Download PhantomSpectre.apk below, open it on the phone, allow installs from this source."
-          files: PhantomSpectre.apk
+          name: Nethex (latest build)
+          body: "Installable APK. Download Nethex.apk below, open it on the phone, allow installs from this source."
+          files: Nethex.apk
           prerelease: false

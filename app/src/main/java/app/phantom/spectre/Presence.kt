@@ -129,7 +129,7 @@ class Presence(private val ctx: Context, private val tel: Telemetry) {
             doNotify = booted && cfg.optBoolean("notify", true) && (cfg.optString("scope", "all") == "all" || d.watch) && (kind == "leave" || cfg.optBoolean("join", true))
             vib = cfg.optBoolean("vibrate", true)
         }
-        if (doNotify) notify("Phantom Spectre", "${d.label()} ${if (kind == "leave") "left the network" else "joined the network"}  (${d.ip})", "spectre-" + d.key, vib)
+        if (doNotify) notify("Nethex", "${d.label()} ${if (kind == "leave") "left the network" else "joined the network"}  (${d.ip})", "spectre-" + d.key, vib)
     }
 
     // ---------- the sweep ----------

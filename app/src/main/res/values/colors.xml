@@ -3,5 +3,5 @@
     <color name="bg">#FF07090E</color>
     <color name="accent">#FF38F0DC</color>
     <color name="pink">#FFFF4FA3</color>
-    <color name="ic_bg">#FF07090E</color>
+    <color name="ic_bg">#FF000000</color>
 </resources>

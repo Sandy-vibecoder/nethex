@@ -67,7 +67,7 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         val loc = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!loc) Toast.makeText(this, "Location permission is required to read WiFi names and scan. Grant it in Settings → Apps → Phantom Spectre.", Toast.LENGTH_LONG).show()
+        if (!loc) Toast.makeText(this, "Location permission is required to read WiFi names and scan. Grant it in Settings → Apps → Nethex.", Toast.LENGTH_LONG).show()
         boot()
     }
 

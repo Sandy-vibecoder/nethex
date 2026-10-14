@@ -55,7 +55,7 @@ class SpectreServer(
                 "/api/devices/watch" -> json(JSONObject().put("ok", presence.setWatch(q["key"] ?: "", (q["on"] ?: "1") == "1")))
                 "/api/devices/forget" -> json(JSONObject().put("ok", presence.forget(q["key"] ?: "")))
                 "/api/presence/config" -> json(presence.configure(q))
-                "/api/notify" -> { presence.notify((q["title"] ?: "Phantom Spectre").take(60), (q["body"] ?: "").take(200), "spectre-" + (q["id"] ?: "app"), true); json(JSONObject().put("ok", true)) }
+                "/api/notify" -> { presence.notify((q["title"] ?: "Nethex").take(60), (q["body"] ?: "").take(200), "spectre-" + (q["id"] ?: "app"), true); json(JSONObject().put("ok", true)) }
                 "/api/status" -> {
                     val snap = tracker.snapshot()
                     json(JSONObject().put("ok", true).put("uptime_s", (Util.now() - startedAt).toInt()).put("host", "127.0.0.1").put("port", PORT)
@@ -71,7 +71,7 @@ class SpectreServer(
                 "/api/track/reset" -> { tracker.reset(); json(tracker.snapshot()) }
                 "/", "/index.html", "/phantom.html" -> asset("phantom.html", "text/html; charset=utf-8")
                 "/icon.svg" -> asset("icon.svg", "image/svg+xml")
-                "/manifest.webmanifest" -> json(JSONObject().put("name", "Phantom Spectre").put("short_name", "Spectre").put("start_url", "/").put("display", "standalone").put("background_color", "#07090e").put("theme_color", "#07090e"))
+                "/manifest.webmanifest" -> json(JSONObject().put("name", "Nethex").put("short_name", "Nethex").put("start_url", "/").put("display", "standalone").put("background_color", "#07090e").put("theme_color", "#07090e"))
                 "/sw.js" -> newFixedLengthResponse(Response.Status.OK, "application/javascript", "")
                 else -> json(JSONObject().put("error", "not found"), Response.Status.NOT_FOUND)
             }

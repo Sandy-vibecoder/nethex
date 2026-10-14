@@ -1,6 +1,6 @@
-# Phantom Spectre — Android app
+# Nethex — Android app
 
-Native Android build of the Phantom Spectre survey console. A foreground service replaces the Termux
+Native Android build of the Nethex survey console. A foreground service replaces the Termux
 listener (WiFi, cell, step/rotation sensors, device presence sweep, Android notifications) and serves the
 same `phantom.html` to a WebView on `127.0.0.1:8765`. No Termux needed once installed.
 
@@ -12,7 +12,7 @@ You need a free GitHub account. Everything below runs in Termux.
 pkg install git gh unzip
 unzip ~/storage/downloads/spectre-android.zip -d ~/spectre-android
 cd ~/spectre-android
-git init -b main && git add . && git commit -m "Phantom Spectre"
+git init -b main && git add . && git commit -m "Nethex"
 gh auth login            # choose GitHub.com → HTTPS → login with a web browser, paste the code
 gh repo create phantom-spectre --private --source=. --push
 ```
@@ -26,8 +26,8 @@ gh run watch
 When it finishes, download the APK and install it:
 
 ```bash
-gh release download latest -p PhantomSpectre.apk --clobber
-termux-open PhantomSpectre.apk
+gh release download latest -p Nethex.apk --clobber
+termux-open Nethex.apk
 ```
 
 Android will ask to allow installs from Termux the first time. The APK is also on the repo's

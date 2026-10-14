@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Phantom Spectre</string>
-    <string name="svc_channel">Spectre listener</string>
-    <string name="ev_channel">Spectre alerts</string>
+    <string name="app_name">Nethex</string>
+    <string name="svc_channel">Nethex listener</string>
+    <string name="ev_channel">Nethex alerts</string>
     <string name="svc_running">Listener running on 127.0.0.1:8765</string>
 </resources>
