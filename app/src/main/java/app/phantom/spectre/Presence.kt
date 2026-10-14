@@ -175,6 +175,11 @@ class Presence(private val ctx: Context, private val tel: Telemetry) {
                     var key = if (mac.isNotEmpty()) mac else "ip:$ip"
                     var d = devices[key]
                     if (d == null && mac.isEmpty()) { d = devices.values.firstOrNull { it.ip == ip && it.mac.isNotEmpty() }; if (d != null) key = d.key }
+                    if (d == null && mac.isNotEmpty()) {
+                        // first seen by IP only, now the MAC is known: migrate the record so name/watch survive
+                        val old = devices.remove("ip:$ip")
+                        if (old != null) { d = Dev(key); d.ip = old.ip; d.mac = mac; d.host = old.host; d.name = old.name; d.watch = old.watch; d.firstSeen = old.firstSeen; d.lastSeen = old.lastSeen; d.online = old.online; d.missed = old.missed; d.joins = old.joins; devices[key] = d }
+                    }
                     if (d == null) { d = Dev(key); d.firstSeen = now; devices[key] = d }
                     val was = d.online
                     d.ip = ip; if (mac.isNotEmpty()) d.mac = mac; d.lastSeen = now; d.online = true; d.missed = 0; d.latMs = answered[ip]
