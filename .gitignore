@@ -5,3 +5,6 @@ build/
 local.properties
 .DS_Store
 app/build/
+*.keystore
+*.jks
+nethex-signing/

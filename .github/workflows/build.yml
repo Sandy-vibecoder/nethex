@@ -27,8 +27,18 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build signed release APK
+      - name: Restore signing key from secrets (skipped on forks without secrets)
+        if: ${{ secrets.KEYSTORE_B64 != '' }}
+        run: echo "$KEYSTORE_B64" | base64 -d > app/release.keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+
+      - name: Build release APK
         run: gradle assembleRelease --no-daemon --stacktrace
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Collect
         run: cp app/build/outputs/apk/release/app-release.apk Nethex.apk
@@ -39,6 +49,7 @@ jobs:
           path: Nethex.apk
 
       - name: Publish as the "latest" release
+        if: ${{ github.event_name != 'pull_request' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest

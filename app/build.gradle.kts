@@ -11,26 +11,28 @@ android {
         applicationId = "app.phantom.spectre"
         minSdk = 29
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
+    // Release signing: the keystore is restored from GitHub secrets by the workflow (see .github/workflows/build.yml).
+    // Without it (a fork, a local build) the APK is signed with the debug key so the build still succeeds.
+    val releaseKeystore = file("release.keystore")
     signingConfigs {
         create("spectre") {
-            storeFile = file("spectre.keystore")
-            storePassword = "spectre123"
-            keyAlias = "spectre"
-            keyPassword = "spectre123"
+            if (releaseKeystore.exists()) {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: "nethex"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("spectre")
-        }
-        debug {
-            signingConfig = signingConfigs.getByName("spectre")
+            signingConfig = if (releaseKeystore.exists()) signingConfigs.getByName("spectre") else signingConfigs.getByName("debug")
         }
     }
 
