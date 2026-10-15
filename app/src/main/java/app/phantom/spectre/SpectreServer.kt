@@ -63,12 +63,18 @@ class SpectreServer(
                             .put("telephony", tel.cellSnapshot().optBoolean("ok")).put("notify", true).put("ping", true))
                         .put("sensors", snap.getJSONObject("sensors")).put("track_err", snap.opt("err") ?: JSONObject.NULL)
                         .put("operator", JSONObject().put("name", tel.cellSnapshot().optString("operator", "")))
-                        .put("net", tel.netSnapshot()).put("app", "android"))
+                        .put("net", tel.netSnapshot()).put("app", "android")
+                        .put("launch_sound", ctx.getSharedPreferences("nethex", Context.MODE_PRIVATE).getBoolean("launch_sound", true)))
                 }
                 "/api/track/set" -> { tracker.set(q["x"]?.toDoubleOrNull() ?: 0.0, q["y"]?.toDoubleOrNull() ?: 0.0); json(tracker.snapshot()) }
                 "/api/track/face" -> { tracker.face(q["deg"]?.toDoubleOrNull() ?: 0.0); json(tracker.snapshot()) }
                 "/api/track/steplen" -> { tracker.setStepLen(q["m"]?.toDoubleOrNull() ?: 0.7); json(tracker.snapshot()) }
                 "/api/track/reset" -> { tracker.reset(); json(tracker.snapshot()) }
+                "/api/app/prefs" -> {
+                    val sp = ctx.getSharedPreferences("nethex", Context.MODE_PRIVATE)
+                    q["launch_sound"]?.let { sp.edit().putBoolean("launch_sound", it == "1").apply() }
+                    json(JSONObject().put("ok", true).put("launch_sound", sp.getBoolean("launch_sound", true)))
+                }
                 "/", "/index.html", "/phantom.html" -> asset("phantom.html", "text/html; charset=utf-8")
                 "/icon.svg" -> asset("icon.svg", "image/svg+xml")
                 "/manifest.webmanifest" -> json(JSONObject().put("name", "Nethex").put("short_name", "Nethex").put("start_url", "/").put("display", "standalone").put("background_color", "#07090e").put("theme_color", "#07090e"))

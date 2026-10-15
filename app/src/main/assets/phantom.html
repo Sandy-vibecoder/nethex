@@ -39,7 +39,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--font-bod
     repeating-linear-gradient(0deg, transparent 0 39px, rgba(255,255,255,.012) 39px 40px),
     repeating-linear-gradient(90deg, transparent 0 39px, rgba(255,255,255,.012) 39px 40px);}
 button,input,select,textarea{font:inherit;color:inherit}
-button{cursor:pointer}
+button{cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .08s}
+button:active{transform:scale(.97)}
+.tag{transition:background .2s,color .2s}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 h1,h2,h3{margin:0;font-family:var(--font-display);text-wrap:balance}
 .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
@@ -456,6 +458,7 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:0}
         <h2>Display</h2>
         <div class="grid2">
           <div class="field"><label for="tScale">Colour scale</label><select class="inp" id="tScale"><option value="spectrum">Spectrum</option><option value="thermal">Thermal</option><option value="traffic">Traffic (5 bands)</option><option value="viridis">Viridis</option></select></div>
+          <div class="field" id="launchField" hidden><label for="tLaunch">Launch sound</label><select class="inp" id="tLaunch"><option value="1">On</option><option value="0">Off</option></select></div>
           <div class="field"><label for="tRes">Heat resolution</label><select class="inp" id="tRes"><option value="32">Coarse</option><option value="48">Normal</option><option value="72">Fine</option></select></div>
           <div class="field"><label for="tGood">WiFi good ≥ dBm</label><input class="inp mono" id="tGood" type="number" min="-90" max="-30"></div>
           <div class="field"><label for="tOk">WiFi usable ≥ dBm</label><input class="inp mono" id="tOk" type="number" min="-95" max="-30"></div>
@@ -535,7 +538,7 @@ const activeMap=()=>S.maps.find(m=>m.id===S.activeMapId)||S.maps[0]||null;
 /* runtime */
 let T=null;                // last /api/track payload
 let online=false, lastOk=0;
-let you=null, walkLast=null, walkLogged=0, lastSeq=-1, pendingAps=null, lastScanReq=0;
+let you=null, youDraw=null, walkLast=null, walkLogged=0, lastSeq=-1, pendingAps=null, lastScanReq=0;
 let sparkBuf=[], selectedId=null, yaw=-0.6, pitch=0.5, gridCache=null, replayN=null, replayTimer=null, wakeLock=null;
 let lastLive={rssi:null,ssid:null,bssid:null,freq:0,cell:null,lat:null};
 const bgImgs={};
@@ -618,7 +621,10 @@ function renderWalk(){
   if(!you){ st.textContent='starting'; st.className='tag'; return; }
   if(you.err){ st.textContent='no sensors'; st.className='tag warn'; $('#walkHint').textContent=you.err; }
   else { st.textContent=you.moving?'moving':'still'; st.className='tag '+(you.moving?'pink':'good');
-    const s=you.sensors; $('#walkHint').textContent=`${s.rotation?'rotation sensor ok':'no rotation sensor: heading fixed, press an arrow at each turn'} · steps: ${you.src==='none'?'none yet':you.src} · ${lastLive.rssi!=null?'logging '+lastLive.ssid:'no wifi link'}${lastLive.cell?' · cell '+lastLive.cell.dbm:''}`; }
+    const s=you.sensors; const rs=s.rot_src||(s.rotation?'rotation':'none');
+    const headTxt={rotation:'gyro heading',game:'gyro heading',geomagnetic:'compass heading',compass:'compass heading (no gyro: keep the phone flat)',none:'no heading sensor: press an arrow at each turn'}[rs]||'heading ok';
+    const stepTxt={detector:'hardware steps',counter:'hardware steps',accel:'accelerometer steps',none:'no steps yet'}[you.src]||you.src;
+    $('#walkHint').textContent=`${headTxt} · ${stepTxt} · ${lastLive.rssi!=null?'logging '+lastLive.ssid:'no wifi link'}${lastLive.cell?' · cell '+lastLive.cell.dbm:''}`; }
   $('#wkSteps').textContent=you.steps; $('#wkHead').innerHTML=Math.round(you.heading)+'<small>°</small>';
   $('#wkPos').textContent=`${you.x.toFixed(1)}, ${you.y.toFixed(1)} m`; $('#wkLogged').textContent=walkLogged;
   drawCompass(you.heading);
@@ -633,7 +639,7 @@ function drawCompass(h){
   ctx.fillStyle='#e05cff'; ctx.beginPath(); ctx.moveTo(0,-r+22); ctx.lineTo(9,10); ctx.lineTo(0,4); ctx.lineTo(-9,10); ctx.closePath(); ctx.fill(); ctx.restore();
 }
 $('#faceSeg').addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b) return; try{ await api('/api/track/face?deg='+b.dataset.deg); toast('Heading aligned','ok'); }catch(x){ toast('Listener unreachable',true); } });
-$('#wkCentre').addEventListener('click',async()=>{ const m=activeMap(); if(!m) return; try{ await api(`/api/track/set?x=${(m.w/2).toFixed(2)}&y=${(m.h/2).toFixed(2)}`); walkLast=null; toast('You are at the centre','ok'); }catch(x){ toast('Listener unreachable',true); } });
+$('#wkCentre').addEventListener('click',async()=>{ const m=activeMap(); if(!m) return; try{ await api(`/api/track/set?x=${(m.w/2).toFixed(2)}&y=${(m.h/2).toFixed(2)}`); walkLast=null; youDraw=null; toast('You are at the centre','ok'); }catch(x){ toast('Listener unreachable',true); } });
 $('#wkFollow').addEventListener('change',e=>{ S.settings.follow=e.target.checked?1:0; save(); drawMap(); });
 $('#recentre').addEventListener('click',()=>{ S.settings.follow=1; $('#wkFollow').checked=true; save(); drawMap(); });
 $('#wkStride').addEventListener('input',e=>{ $('#wkStrideOut').textContent=(+e.target.value).toFixed(2)+' m'; });
@@ -844,7 +850,7 @@ $('#mapList').addEventListener('click',e=>{
 });
 $('#createMap').addEventListener('click',()=>{ const name=$('#nmName').value.trim(); if(!name){ toast('Give the map a name',true); $('#nmName').focus(); return; }
   const m=newMap(name,clamp(+$('#nmW').value||16,2,500),clamp(+$('#nmH').value||16,2,500),$('#nmFloor').value.trim()); S.maps.push(m); setActive(m.id); $('#nmName').value=''; $('#nmFloor').value=''; toast('Map created','ok'); $('.tab[data-tab="survey"]').click(); });
-function setActive(id){ S.activeMapId=id; selectedId=null; gridCache=null; walkLast=null; replayN=null; fenceInside=null; save(); renderMaps(); renderNetworks(); renderSurvey(); if(!$('#pane-devices').hidden) renderFenceMap(); }
+function setActive(id){ S.activeMapId=id; selectedId=null; gridCache=null; walkLast=null; replayN=null; fenceInside=null; youDraw=null; save(); renderMaps(); renderNetworks(); renderSurvey(); if(!$('#pane-devices').hidden) renderFenceMap(); }
 $('#mapSelect').addEventListener('change',e=>setActive(e.target.value));
 
 /* ---------- data for the active layer ---------- */
@@ -955,7 +961,8 @@ $('#layers').addEventListener('change',()=>{ S.settings.layers={heat:$('#lyHeat'
 const cv=$('#map'), wrap=$('#canvasWrap');
 function layout(m){
   const W=wrap.clientWidth||320; const maxH=Math.max(220,Math.min(window.innerHeight*0.62,640));
-  if(S.settings.mode==='walk'&&+S.settings.follow&&S.settings.view!=='3d'&&you){ const ppm=W/S.settings.walkZoom; const H=Math.round(Math.min(maxH,W*0.95)); return {W,H,ppm,mw:m.w*ppm,mh:m.h*ppm,ox:W/2-you.x*ppm,oy:H/2-you.y*ppm,follow:true}; }
+  const yd=youDraw||you;
+  if(S.settings.mode==='walk'&&+S.settings.follow&&S.settings.view!=='3d'&&yd){ const ppm=W/S.settings.walkZoom; const H=Math.round(Math.min(maxH,W*0.95)); return {W,H,ppm,mw:m.w*ppm,mh:m.h*ppm,ox:W/2-yd.x*ppm,oy:H/2-yd.y*ppm,follow:true}; }
   const ppm=Math.min(W/m.w,maxH/m.h); const mw=m.w*ppm,mh=m.h*ppm; const H=Math.round(S.settings.view==='3d'?Math.max(mh,Math.min(maxH,W*0.75)):mh);
   return {W,H,ppm,mw,mh,ox:(W-mw)/2,oy:S.settings.view==='3d'?0:(H-mh)/2};
 }
@@ -971,10 +978,10 @@ function drawMap(){
   if(S.settings.view==='3d') draw3D(ctx,m,L); else { ctx.fillStyle='#0a0e15'; ctx.fillRect(0,0,L.W,L.H); draw2D(ctx,m,L,os); drawBest(ctx,m,L); drawYou(ctx,L); }
 }
 function heatCanvas(m){
-  const g=getGrid(m); const off=document.createElement('canvas'); off.width=g.cols; off.height=g.rows; const id=off.getContext('2d').createImageData(g.cols,g.rows); const d=id.data;
+  const g=getGrid(m); const hk=gridCache.key+'|'+S.settings.scale; if(gridCache.heatKey===hk&&gridCache.heat) return gridCache.heat; const off=document.createElement('canvas'); off.width=g.cols; off.height=g.rows; const id=off.getContext('2d').createImageData(g.cols,g.rows); const d=id.data;
   for(let i=0;i<g.g.length;i++){ const t=g.t[i]; let c; if(S.settings.layer==='dom'){ c=g.idx[i]>=0?hex2rgb(netColor(g.aps[g.idx[i]])):[0,0,0]; const k=isFinite(t)?0.45+0.55*t:0; c=c.map(x=>Math.round(x*k)); } else c=colorT(t);
     d[i*4]=c[0]; d[i*4+1]=c[1]; d[i*4+2]=c[2]; d[i*4+3]=isFinite(t)?Math.round(255*fadeAlpha(g.dmin[i])):0; }
-  off.getContext('2d').putImageData(id,0,0); return off;
+  off.getContext('2d').putImageData(id,0,0); gridCache.heat=off; gridCache.heatKey=hk; return off;
 }
 function draw2D(ctx,m,L,os){
   const {ox,oy,mw,mh,ppm}=L; ctx.fillStyle='#141b27'; ctx.fillRect(ox,oy,mw,mh);
@@ -1002,9 +1009,9 @@ function drawBest(ctx,m,L){
   ctx.fillStyle='#fff'; ctx.beginPath(); for(let i=0;i<8;i++){ const a=i*Math.PI/4-Math.PI/2,rr=i%2?3.5:9; ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); } ctx.closePath(); ctx.fill(); ctx.strokeStyle='#07090e'; ctx.lineWidth=1; ctx.stroke();
 }
 function drawYou(ctx,L){
-  if(!you||S.settings.mode!=='walk') return; const {ox,oy,ppm}=L; const x=ox+you.x*ppm,y=oy+you.y*ppm;
+  if(!you||S.settings.mode!=='walk') return; const yd=youDraw||you; const {ox,oy,ppm}=L; const x=ox+yd.x*ppm,y=oy+yd.y*ppm;
   if(you.trail&&you.trail.length>1){ ctx.strokeStyle='rgba(224,92,255,.55)'; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.beginPath(); you.trail.forEach((p,i)=>{ const px=ox+p[0]*ppm,py=oy+p[1]*ppm; i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.stroke(); ctx.setLineDash([]); }
-  const h=you.heading*Math.PI/180; ctx.save(); ctx.translate(x,y); ctx.rotate(h);
+  const h=yd.heading*Math.PI/180; ctx.save(); ctx.translate(x,y); ctx.rotate(h);
   const g=ctx.createRadialGradient(0,0,0,0,0,48); g.addColorStop(0,'rgba(224,92,255,.38)'); g.addColorStop(1,'rgba(224,92,255,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,48,-Math.PI/2-0.5,-Math.PI/2+0.5); ctx.closePath(); ctx.fill();
   ctx.fillStyle='#e05cff'; ctx.beginPath(); ctx.moveTo(0,-13); ctx.lineTo(8,7); ctx.lineTo(0,2); ctx.lineTo(-8,7); ctx.closePath(); ctx.fill(); ctx.strokeStyle='#07090e'; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore();
   if(you.moving){ ctx.strokeStyle='rgba(224,92,255,.6)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(x,y,16+((Date.now()/60)%12),0,Math.PI*2); ctx.stroke(); }
@@ -1041,12 +1048,19 @@ wrap.addEventListener('pointerup',e=>{
   let hit=null,best=14; for(const o of readingsFor(m)){ const d=Math.hypot(L.ox+o.r.x*L.ppm-px,L.oy+o.r.y*L.ppm-py); if(d<best){best=d;hit=o.r;} }
   if(hit){ selectedId=hit.id===selectedId?null:hit.id; renderSel(); drawMap(); return; }
   if(x<0||y<0||x>m.w||y>m.h){ toast('Outside the map',true); return; }
-  if(S.settings.mode==='walk'){ api(`/api/track/set?x=${x.toFixed(2)}&y=${y.toFixed(2)}`).then(()=>{ walkLast=null; toast('Position corrected','ok'); }).catch(()=>toast('Listener unreachable',true)); return; }
+  if(S.settings.mode==='walk'){ api(`/api/track/set?x=${x.toFixed(2)}&y=${y.toFixed(2)}`).then(()=>{ walkLast=null; youDraw=null; toast('Position corrected','ok'); }).catch(()=>toast('Listener unreachable',true)); return; }
   if(S.settings.mode==='manual'){ addReading(m,x,y,'manual',+$('#manualRssi').value); drawMap(); return; }
   if(!online||(lastLive.rssi==null&&!lastLive.cell&&lastLive.lat==null)){ toast('No live data. Start the listener or use Manual.',true); return; }
   addReading(m,x,y,'tap'); drawMap();
 });
-let animT=null; function animate(){ if(!$('#pane-survey').hidden&&S.settings.view!=='3d'&&(S.settings.layers.best||(you&&you.moving))){ const m=activeMap(); if(m&&m.readings.length) drawMap(); } animT=setTimeout(animate,160); }
+function easeYou(){ if(!you){ youDraw=null; return false; } if(!youDraw){ youDraw={x:you.x,y:you.y,heading:you.heading}; return true; }
+  const dx=you.x-youDraw.x, dy=you.y-youDraw.y; let dh=((you.heading-youDraw.heading)+540)%360-180;
+  if(Math.abs(dx)<0.004&&Math.abs(dy)<0.004&&Math.abs(dh)<0.3){ youDraw.x=you.x; youDraw.y=you.y; youDraw.heading=you.heading; return false; }
+  youDraw.x+=dx*0.18; youDraw.y+=dy*0.18; youDraw.heading=(youDraw.heading+dh*0.22+360)%360; return true; }
+function animate(){ const onSurvey=!$('#pane-survey').hidden&&S.settings.view!=='3d'; let busy=false;
+  if(onSurvey&&S.settings.mode==='walk') busy=easeYou();
+  if(onSurvey){ const m=activeMap(); if(busy||(m&&m.readings.length&&(S.settings.layers.best||(you&&you.moving)))) drawMap(); }
+  if(busy) requestAnimationFrame(animate); else setTimeout(animate,160); }
 
 /* ---------- setup ---------- */
 function renderSetup(){ $('#lUrl').value=S.settings.listener; $('#lPoll').value=S.settings.poll; $('#lScan').value=S.settings.scanEvery; $('#tGood').value=S.settings.good; $('#tOk').value=S.settings.ok; $('#tCellGood').value=S.settings.cellGood; $('#tCellOk').value=S.settings.cellOk; $('#tRes').value=String(S.settings.res); $('#tScale').value=S.settings.scale; }
@@ -1056,6 +1070,7 @@ function renderSetup(){ $('#lUrl').value=S.settings.listener; $('#lPoll').value=
   S.settings.res=+$('#tRes').value||48; S.settings.scale=SCALES[$('#tScale').value]?$('#tScale').value:'spectrum'; gridCache=null; save(); renderSetup(); schedule(); renderSurvey(); }));
 async function loadStatus(){ const tag=$('#statusTag'),body=$('#statusBody');
   try{ const s=await api('/api/status'); tag.textContent=`up ${Math.round(s.uptime_s/60)} min`; tag.className='tag ok';
+    if(s.app==='android'){ $('#launchField').hidden=false; $('#tLaunch').value=s.launch_sound===false?'0':'1'; }
     const t=s.tools||{}; const kv=(k,v)=>`<span>${k} <b style="color:${v?'var(--accent)':'var(--bad)'}">${v?'yes':'no'}</b></span>`;
     body.innerHTML=kv('termux-api',t.termux_api)+kv('sensors',t.sensor)+kv('telephony',t.telephony)+kv('nmap',t.nmap)+kv('rotation',s.sensors&&s.sensors.rotation)+kv('step',s.sensors&&s.sensors.step)+`<span>operator <b>${esc((s.operator||{}).name||'—')}</b></span><span>gateway <b>${esc((s.net||{}).gateway||'—')}</b></span><span>ip <b>${esc((s.net||{}).ip||'—')}</b></span>${s.track_err?`<span style="color:var(--warn)">${esc(s.track_err)}</span>`:''}`; }
   catch(e){ tag.textContent='offline'; tag.className='tag bad'; body.innerHTML='<span>Listener unreachable from this page. Open http://127.0.0.1:8765 on the phone running phantom.py.</span>'; } }
@@ -1071,6 +1086,7 @@ function importJson(txt){ try{ const j=JSON.parse(txt); if(!j||!Array.isArray(j.
 $('#importBtn').addEventListener('click',()=>importJson($('#ioBox').value));
 $('#importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ $('#ioBox').value=rd.result; importJson(rd.result); }; rd.readAsText(f); e.target.value=''; });
 $('#resetBtn').addEventListener('click',e=>{ if(arm(e.currentTarget)){ try{ localStorage.removeItem(KEY); }catch(x){} S=seed(); gridCache=null; selectedId=null; walkLast=null; walkLogged=0; replayN=null; renderMaps(); renderNetworks(); renderSetup(); renderSurvey(); schedule(); toast('Everything cleared'); } });
+$('#tLaunch').addEventListener('change',e=>{ api('/api/app/prefs?launch_sound='+e.target.value).then(()=>toast(e.target.value==='1'?'Launch sound on':'Launch sound off','ok')).catch(()=>toast('Listener unreachable',true)); });
 $('#coachHide').addEventListener('click',()=>{ try{ localStorage.setItem(KEY+':coach','1'); }catch(e){} $('#coach').hidden=true; });
 $('#fsBtn').addEventListener('click',()=>{ const d=document; try{ if(d.fullscreenElement) d.exitFullscreen(); else d.documentElement.requestFullscreen().catch(()=>toast('Fullscreen not available here')); }catch(e){ toast('Fullscreen not available here'); } });
 

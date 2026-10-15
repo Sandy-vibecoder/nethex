@@ -19,6 +19,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -60,6 +63,7 @@ class MainActivity : Activity() {
         }
         setContentView(web)
         web.visibility = View.VISIBLE
+        if (savedInstanceState == null && !SpectreService.running) playLaunchSound()
         val missing = neededPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isEmpty()) boot() else requestPermissions(missing.toTypedArray(), 7)
     }
@@ -76,6 +80,18 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc) else startService(svc)
         retries = 0
         handler.postDelayed({ web.loadUrl(url) }, 400)
+    }
+
+    private fun playLaunchSound() {
+        try {
+            if (!getSharedPreferences("nethex", MODE_PRIVATE).getBoolean("launch_sound", true)) return
+            val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+            val session = (getSystemService(AUDIO_SERVICE) as AudioManager).generateAudioSessionId()
+            val mp = MediaPlayer.create(this, R.raw.launch, attrs, session) ?: return
+            mp.setVolume(0.7f, 0.7f)
+            mp.setOnCompletionListener { p -> p.release() }
+            mp.start()
+        } catch (_: Exception) {}
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
